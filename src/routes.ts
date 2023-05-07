@@ -29,7 +29,7 @@ router.addHandler("detail", async ({ request, page, log }) => {
 
   // when menu is open, close it
   log.debug(`when menu is open, close it...`);
-  const target = page.locator(".fixed.top-0.left-0.w-screen");
+  const target = page.locator(".fixed.top-0.left-0.w-screen > div").first();
   if (await target.isVisible()) {
     // click page center
     await page.mouse.click(722, 500, { delay: 50 });
