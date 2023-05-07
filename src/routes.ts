@@ -4,7 +4,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 
 export const router = createPlaywrightRouter();
 
-router.addDefaultHandler(async ({ enqueueLinks, log }) => {
+router.addDefaultHandler(async ({ page,enqueueLinks, log }) => {
+  await page.waitForSelector("div[role=listitem]")
   log.info(`enqueueing new URLs`);
   await enqueueLinks({
     globs: ["https://comic.pixiv.net/viewer/stories/**"],
