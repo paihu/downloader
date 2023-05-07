@@ -14,27 +14,9 @@ router.addDefaultHandler(async ({ page, enqueueLinks, log }) => {
 });
 
 router.addHandler("detail", async ({ request, page, log }) => {
-  // picture size 722 x 1024
-  await page.setViewportSize({ width: 1444, height: 1024 });
-
   // wait page loading
   log.debug(`wait page loading...`);
   await page.locator("#page-1").waitFor({ state: "attached" });
-
-  // wait close page layout notice
-  log.debug(`wait close page layout notice...`);
-  await page
-    .locator("span", { hasText: /(縦|横)読み/ })
-    .waitFor({ state: "detached" });
-
-  // when menu is open, close it
-  log.debug(`when menu is open, close it...`);
-  const target = page.locator(".fixed.top-0.left-0.w-screen > div").first();
-  if (await target.isVisible()) {
-    // click page center
-    await page.mouse.click(722, 500, { delay: 50 });
-    await target.waitFor({ state: "detached" });
-  }
 
   const title = await page.title();
   const subTitle = title.split("|")[0].trim();
@@ -42,13 +24,18 @@ router.addHandler("detail", async ({ request, page, log }) => {
   const stories = request.loadedUrl?.split("/").pop() ?? "";
   log.info(`${seriesTitle}/${stories}-${subTitle}`, { url: request.loadedUrl });
 
-  const directory = `${process.argv[2]}-${seriesTitle}/${stories}-${subTitle}`;
+  const directory = `storage/${process.argv[2]}-${seriesTitle}/${stories}-${subTitle}`;
+
+  const client = await page.context().newCDPSession(page);
+  await client.send("Page.enable");
+  const tree = await client.send("Page.getResourceTree");
+
+  if (!existsSync(directory)) {
+    await mkdir(directory, { recursive: true });
+  }
 
   try {
     for (let i = 0; true; i++) {
-      if (!existsSync(directory)) {
-        await mkdir(directory, { recursive: true });
-      }
       if (!existsSync(`${directory}/page-${i}.png`)) {
         const bgUrl = page.locator(`#page-${i}`);
         const loading = bgUrl.locator("div");
@@ -56,11 +43,26 @@ router.addHandler("detail", async ({ request, page, log }) => {
           log.debug(`wait image loading...`);
           await loading.waitFor({ state: "detached" });
         }
-        const buf = await bgUrl.screenshot();
-        await writeFile(`${directory}/page-${i}.png`, buf);
+        const blobUrl = await bgUrl.evaluate((e) => {
+          // background-image: url("blob:https://...")
+          return window.getComputedStyle(e).backgroundImage.split('"')[1];
+        });
+
+        if (!blobUrl.startsWith("blob")) {
+          if (i === 0) {
+            continue;
+          }
+          break;
+        }
+        const { content } = await client.send("Page.getResourceContent", {
+          frameId: tree.frameTree.frame.id,
+          url: blobUrl,
+        });
+        const buf = Buffer.from(content, "base64");
+        await writeFile(`${directory}/page-${i}.png`, buf, "base64");
       }
     }
   } catch (e) {
-    log.info(`${e}`);
+    log.debug(`${e}`);
   }
 });
