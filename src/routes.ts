@@ -14,6 +14,7 @@ router.addDefaultHandler(async ({ page,enqueueLinks, log }) => {
 });
 
 router.addHandler("detail", async ({ request, page, log }) => {
+  page.setDefaultTimeout(1000);
   const title = await page.title();
   const subTitle = title.split("|")[0].trim();
   const seriesTitle = title.split("|")[1].split("-")[0].trim();
