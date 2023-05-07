@@ -4,8 +4,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 
 export const router = createPlaywrightRouter();
 
-router.addDefaultHandler(async ({ page,enqueueLinks, log }) => {
-  await page.waitForSelector("div[role=listitem]")
+router.addDefaultHandler(async ({ page, enqueueLinks, log }) => {
+  await page.waitForSelector("div[role=listitem]");
   log.info(`enqueueing new URLs`);
   await enqueueLinks({
     globs: ["https://comic.pixiv.net/viewer/stories/**"],
@@ -15,12 +15,16 @@ router.addDefaultHandler(async ({ page,enqueueLinks, log }) => {
 
 router.addHandler("detail", async ({ request, page, log }) => {
   page.setDefaultTimeout(1000);
+  // picture size 722 x 1024
+  // header height 64px footer height 84px
+  await page.setViewportSize({ width: 1444, height: 1188 });
   const title = await page.title();
   const subTitle = title.split("|")[0].trim();
   const seriesTitle = title.split("|")[1].split("-")[0].trim();
   const stories = request.loadedUrl?.split("/").pop() ?? "";
   log.info(`${seriesTitle}/${stories}-${subTitle}`, { url: request.loadedUrl });
   await sleep(5000);
+
   try {
     for (let i = 0; true; i++) {
       if (!existsSync(seriesTitle)) {
